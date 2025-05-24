@@ -45,8 +45,8 @@ public class SubscriptionHandler {
         DBSessionsManager.saveObject(existingSession);
 
         try {
-            Util.reply(telegramUserId, "Спасибо за подписку! Ваш ник уже указан, привилегии активированы.");
             RCONClient.getInstance().sendCommand(String.format("lp user %s parent add donate", existingSession.getUsername()));
+            Util.reply(telegramUserId, "Спасибо за подписку! Ваш ник уже указан, привилегии активированы.");
         } catch (Exception e) {
             log.error("Failed to send message to user {}: {}", telegramUserId, e.getMessage());
         }

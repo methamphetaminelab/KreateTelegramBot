@@ -70,7 +70,12 @@ public class CommandHandler {
         Util.reply(chatId, "Ник успешно установлен");
 
         if (session.isSubscribed()) {
-
+            try {
+                RCONClient.getInstance().sendCommand(String.format("lp user %s parent add donate", session.getUsername()));
+                Util.reply(chatId, "Спасибо за подписку! Привилегии активированы.");
+            } catch (IOException e) {
+                log.error("Failed to send message to user {}: {}", chatId, e.getMessage());
+            }
         }
     }
 
