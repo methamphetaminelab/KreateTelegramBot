@@ -15,6 +15,9 @@ public class TelegramSession {
     @Column(name = "chat_id", unique = true, nullable = false)
     private Long chatId;
 
+    @Column(name = "telegram_username", unique = true, nullable = false)
+    private String telegramUsername;
+
     @Column
     private String username;
 
@@ -32,6 +35,9 @@ public class TelegramSession {
 
     @Column
     private String discord;
+
+    @Column(name = "is_subscribed", nullable = false)
+    private boolean isSubscribed = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

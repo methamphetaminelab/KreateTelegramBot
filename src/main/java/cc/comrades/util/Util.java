@@ -98,8 +98,8 @@ public class Util {
     }
 
     public static boolean validateText(Long chatId, String text) {
-        if (text.length() < 3 || text.length() > 255) {
-            reply(chatId, "Текст должен содержать от 3 до 255 символов.", true);
+        if (text.length() < 1 || text.length() > 255) {
+            reply(chatId, "Текст должен содержать от 1 до 255 символов.", true);
             return false;
         }
         return true;

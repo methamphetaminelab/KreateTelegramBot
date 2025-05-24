@@ -125,6 +125,8 @@ public class MessageHandler {
         }
         if (session.getDiscord() != null && !session.getDiscord().trim().equals("-")) {
             messageBuilder.append("Дискорд: ").append(session.getDiscord()).append("\n");
+        } if (session.getUsername() != null) {
+            messageBuilder.append("Телеграм: ").append('@').append(session.getUsername()).append("\n");
         }
 
         SendMessage message = new SendMessage(Long.parseLong(EnvLoader.get("TARGET_CHAT_ID")), messageBuilder.toString());

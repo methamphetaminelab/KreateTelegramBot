@@ -99,6 +99,7 @@ public class RCONClient {
         return requestIdGenerator.getAndIncrement();
     }
 
+    // TODO: call on bot disconnect
     public void disconnect() throws IOException {
         if (socket != null) {
             socket.close();

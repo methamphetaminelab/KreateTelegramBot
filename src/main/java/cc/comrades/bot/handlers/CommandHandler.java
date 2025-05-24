@@ -1,6 +1,5 @@
 package cc.comrades.bot.handlers;
 
-import cc.comrades.bot.BotClient;
 import cc.comrades.clients.RCONClient;
 import cc.comrades.model.dto.UserStatus;
 import cc.comrades.model.entity.TelegramSession;
@@ -20,12 +19,13 @@ import java.io.IOException;
 public class CommandHandler {
     public static void onUpdate(long chatId, String command, Update update) {
         String[] args = command.split(" ");
+        String username = update.message().from().username();
         switch (args[0].substring(1).toLowerCase()) {
             case "start" -> {
                 if (!update.message().chat().type().equals(Chat.Type.Private)) {
                     return;
                 }
-                handleStartCommand(chatId);
+                handleStartCommand(username, chatId);
             }
             case "update_whitelist" -> handleUpdateWhitelistCommand(chatId);
             case "status" -> {
@@ -36,10 +36,41 @@ public class CommandHandler {
                 }
                 handleStatusCommand(chatId, args[1]);
             }
+            case "setname" -> {
+                if (args.length < 2) {
+                    Util.reply(chatId, "Пожалуйста, укажите свой ник в Minecraft. " +
+                            "Например: /setname your_nickname");
+                    return;
+                }
+                handleSetNameCommand(username, chatId, args);
+            }
 //            default -> {
 //                Util.reply(chatId, "Неизвестная команда. " +
 //                        "Пожалуйста, используйте /start для начала оформления заявки.");
 //            }
+        }
+    }
+
+    private static void handleSetNameCommand(String telegramUsername, long chatId, String[] args) {
+        String username = args[1];
+        if (!Util.validateUsername(chatId, username)) {
+            return;
+        }
+
+        TelegramSession session = DBSessionsManager.findFirstByField(TelegramSession.class, "chatId", chatId);
+        if (session == null) {
+            session = new TelegramSession();
+            session.setChatId(chatId);
+            session.setTelegramUsername(telegramUsername);
+            session.setStatus(UserStatus.WAITING_FOR_HOURS);
+        }
+        session.setUsername(username);
+        DBSessionsManager.saveObject(session);
+
+        Util.reply(chatId, "Ник успешно установлен");
+
+        if (session.isSubscribed()) {
+
         }
     }
 
@@ -62,7 +93,7 @@ public class CommandHandler {
         }
     }
 
-    private static void handleStartCommand(long chatId) {
+    private static void handleStartCommand(String telegramUsername, long chatId) {
         TelegramSession existingSession = DBSessionsManager.findFirstByField(TelegramSession.class, "chatId", chatId);
         if (existingSession != null) {
             if (existingSession.getStatus() == UserStatus.PENDING) {
@@ -87,6 +118,7 @@ public class CommandHandler {
 
         TelegramSession session = new TelegramSession();
         session.setChatId(chatId);
+        session.setTelegramUsername(telegramUsername);
         session.setStatus(UserStatus.WAITING_FOR_NAME);
         DBSessionsManager.saveObject(session);
     }

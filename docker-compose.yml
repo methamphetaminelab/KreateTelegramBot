@@ -10,7 +10,7 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${DB_PORT}:3306"
+      - "127.0.0.1:${DB_PORT}:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -36,6 +36,9 @@ services:
       RCON_HOST: ${RCON_HOST}
       BOT_TOKEN: ${BOT_TOKEN}
       TARGET_CHAT_ID: ${TARGET_CHAT_ID}
-
+      TRIBUTE_API_KEY: ${TRIBUTE_API_KEY}
+      SERVER_PORT: ${SERVER_PORT}
+    expose:
+      - "${SERVER_PORT}"
 volumes:
   db_data:
