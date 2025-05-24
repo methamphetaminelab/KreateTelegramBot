@@ -14,7 +14,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u${DB_USER} -p${DB_PASSWORD}"]
       interval: 10s
       retries: 5
 
@@ -27,13 +27,13 @@ services:
     environment:
       DB_DRIVER: ${DB_DRIVER}
       DB_HOST: db
-      DB_PORT: "3318"
+      DB_PORT: "3306"
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      RCON_HOST: ${RCON_HOST}
       RCON_PORT: ${RCON_PORT}
       RCON_PASSWORD: ${RCON_PASSWORD}
-      RCON_HOST: ${RCON_HOST}
       BOT_TOKEN: ${BOT_TOKEN}
       TARGET_CHAT_ID: ${TARGET_CHAT_ID}
       TRIBUTE_API_KEY: ${TRIBUTE_API_KEY}
