@@ -41,10 +41,6 @@ public class DBSessionsManager {
     }
 
     private static Configuration createConfiguration() {
-        // TODO: hikari + new config
-
-        // jdbc:${DB_DRIVER}://${DB_HOST}:${DB_PORT}/${DB_NAME}
-
         String driver = EnvLoader.get("DB_DRIVER");
         String host = EnvLoader.get("DB_HOST");
         String port = EnvLoader.get("DB_PORT");
@@ -55,10 +51,14 @@ public class DBSessionsManager {
         String password = EnvLoader.get("DB_PASSWORD");
 
         Configuration configuration = new Configuration();
-        configuration.setProperty("hibernate.connection.url", url);
-        configuration.setProperty("hibernate.connection.username", user);
-        configuration.setProperty("hibernate.connection.password", password);
-
+        configuration.setProperty("hibernate.connection.provider_class",
+                "com.zaxxer.hikari.hibernate.HikariConnectionProvider");
+        configuration.setProperty("hibernate.hikari.jdbcUrl", url);
+        configuration.setProperty("hibernate.hikari.username", user);
+        configuration.setProperty("hibernate.hikari.password", password);
+        configuration.setProperty("hibernate.hikari.minimumIdle", "1");
+        configuration.setProperty("hibernate.hikari.maximumPoolSize", "20");
+        configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
         configuration.setProperty("hibernate.hbm2ddl.auto", "update");
 
         Reflections reflections = new Reflections("cc.comrades.model.entity");
