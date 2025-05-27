@@ -2,6 +2,7 @@ package cc.comrades.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,28 +17,31 @@ public class EnvLoader {
         if (isLoaded) {
             return;
         }
+        envs.putAll(System.getenv());
 
-        try {
-            for (String line : Files.readAllLines(Paths.get(".env"))) {
-                if (line.trim().isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
+        Path envFile = Paths.get(".env");
+        if (Files.exists(envFile)) {
+            try {
+                for (String line : Files.readAllLines(envFile)) {
+                    if (line.trim().isEmpty() || line.startsWith("#")) {
+                        continue;
+                    }
 
-                String[] parts = line.split("=", 2);
-                if (parts.length == 2) {
-                    String key = parts[0].trim();
-                    String value = parts[1].trim();
+                    String[] parts = line.split("=", 2);
+                    if (parts.length == 2) {
+                        String key = parts[0].trim();
+                        String value = parts[1].trim();
 
-                    if (!key.isBlank() && !value.isBlank()) {
-                        envs.put(key, value);
+                        if (!key.isBlank() && !value.isBlank()) {
+                            envs.put(key, value);
+                        }
                     }
                 }
+            } catch (IOException e) {
+                throw new RuntimeException("Could not load .env file", e);
             }
-
-            isLoaded = true;
-        } catch (IOException e) {
-            throw new RuntimeException("Could not load .env file", e);
         }
+        isLoaded = true;
     }
 
     public static String get(String key) {
@@ -45,11 +49,7 @@ public class EnvLoader {
             loadEnvVariables();
         }
 
-        String value = envs.get(key);
-        if (value == null) {
-            throw new IllegalArgumentException("Environment variable " + key + " not found or empty");
-        }
-        return value;
+        return envs.get(key);
     }
 
     public static Map<String, String> getEnvs() {
