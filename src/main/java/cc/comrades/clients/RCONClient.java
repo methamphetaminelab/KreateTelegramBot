@@ -55,9 +55,19 @@ public class RCONClient {
 
     public String sendCommand(String command) throws IOException {
         int id = getNextRequestId();
-        sendPacket(id, 2, command);
-        RconResponse response = receivePacket();
-        return response.body;
+        try {
+            sendPacket(id, 2, command);
+            RconResponse response = receivePacket();
+            return response.body;
+        } catch (IOException e) {
+            RCONClient replacement = create(EnvLoader.get("RCON_HOST"),
+                    Integer.parseInt(EnvLoader.get("RCON_PORT")),
+                    EnvLoader.get("RCON_PASSWORD"));
+            synchronized (RCONClient.class) {
+                instance = replacement;
+            }
+            return instance.sendCommand(command);
+        }
     }
 
     private void sendPacket(int id, int type, String body) throws IOException {
