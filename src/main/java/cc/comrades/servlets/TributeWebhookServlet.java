@@ -36,14 +36,29 @@ public class TributeWebhookServlet extends HttpServlet {
         }
 
         JsonObject jsonObject = JsonParser.parseString(body).getAsJsonObject();
+
+        JsonElement nameElement = jsonObject.get("name");
+        if (nameElement == null || nameElement.isJsonNull()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
         String name = jsonObject.get("name").getAsString();
 
-        if (name.equals("new_subscription")) {
-            NewSubscriptionEvent event = GSON.fromJson(body, NewSubscriptionEvent.class);
-            SubscriptionHandler.onSubscription(event);
-        } else if (name.equals("cancelled_subscription")) {
-            CancelledSubscriptionEvent event = GSON.fromJson(body, CancelledSubscriptionEvent.class);
-            SubscriptionHandler.onCancelSubscription(event);
+        switch (name) {
+            case "new_subscription" -> {
+                NewSubscriptionEvent event = GSON.fromJson(body, NewSubscriptionEvent.class);
+                SubscriptionHandler.onSubscription(event);
+            }
+            case "cancelled_subscription" -> {
+                CancelledSubscriptionEvent event = GSON.fromJson(body, CancelledSubscriptionEvent.class);
+                SubscriptionHandler.onCancelSubscription(event);
+            }
+            case "test_event" -> response.setStatus(HttpServletResponse.SC_OK);
+            default -> {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
         }
 
         response.setStatus(HttpServletResponse.SC_OK);
