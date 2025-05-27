@@ -136,6 +136,11 @@ public class MessageHandler {
                 ButtonRegistry.get("noButton").create(username)
         ).build());
 
+        String threadId = EnvLoader.get("THREAD_ID");
+        if (threadId != null) {
+            message.messageThreadId(Integer.parseInt(EnvLoader.get("THREAD_ID")));
+        }
+
         BotClient.getInstance().getBot().execute(message);
     }
 

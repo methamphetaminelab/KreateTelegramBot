@@ -63,8 +63,24 @@ public class Util {
     }
 
     public static SendResponse reply(long chatId, String text, boolean forceReply) {
+        return reply(chatId, text, null, forceReply);
+    }
+
+    public static SendResponse reply(long chatId, String text, Integer threadId) {
+        return reply(chatId, text, threadId, false);
+    }
+
+    public static SendResponse reply(long chatId, String text, Integer threadId, boolean forceReply) {
         SendMessage message = forceReply ? new SendMessage(chatId, text)
                 .replyMarkup(new ForceReply()) : new SendMessage(chatId, text);
+
+        if (forceReply) {
+            message.replyMarkup(new ForceReply());
+        }
+
+        if (threadId != null) {
+            message.messageThreadId(threadId);
+        }
 
         return BotClient.getInstance().getBot().execute(message);
     }
