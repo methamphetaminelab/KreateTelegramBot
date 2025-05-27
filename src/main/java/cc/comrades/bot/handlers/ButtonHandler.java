@@ -69,7 +69,7 @@ public class ButtonHandler {
 
     private static void addToRCON(CallbackQuery query, long chatId, String username) {
         try {
-            RCONClient.getInstance().sendCommand("whitelist add " + Util.sanitize(username));
+            RCONClient.getInstance().sendCommand("simplewhitelist add " + Util.sanitize(username));
             Util.removeAndEdit(query, chatId, "Пользователь " + username + " был добавлен в белый список");
         } catch (IOException e) {
             log.error("Failed to whitelist user: " + username, e);

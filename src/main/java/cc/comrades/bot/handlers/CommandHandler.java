@@ -14,6 +14,8 @@ import com.pengrad.telegrambot.response.SendResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.function.Consumer;
 
 @Slf4j
 public class CommandHandler {
@@ -84,17 +86,34 @@ public class CommandHandler {
 
         WhitelistUser user = DBSessionsManager.findFirstByField(WhitelistUser.class, "username", username);
 
+        boolean flag = false;
+
         if (user == null) {
-            Util.editMessage(chatId, message.messageId(), "Пользователь не найден в базе данных. " +
-                    "Пожалуйста, проверьте правильность написания ника и попробуйте снова.");
-            return;
+            if (isWhitelistUser(username, e -> Util.editMessage(chatId, message.messageId(),
+                    "Не удалось проверить статус"))) {
+                flag = true;
+            } else {
+                Util.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере.");
+                return;
+            }
         }
 
-        if (user.isWhitelist()) {
+        if (flag || user.isWhitelist()) {
             Util.editMessage(chatId, message.messageId(), "Ты в белом списке на сервере!");
         } else {
             Util.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере. " +
                     "Пожалуйста, дождись одобрения заявки.");
+        }
+    }
+
+    private static boolean isWhitelistUser(String username, Consumer<Exception> onException) {
+        try {
+            String[] usernames = Util.getWhitelistArray(RCONClient.getInstance().sendCommand("simplewhitelist list"));
+            return Arrays.asList(usernames).contains(username);
+        } catch (IOException e) {
+            log.error("Failed to get whitelist list: {}", e.getMessage());
+            onException.accept(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -142,7 +161,7 @@ public class CommandHandler {
     public static void updateFromWhitelist() {
         RCONClient client = RCONClient.getInstance();
         try {
-            String result = client.sendCommand("whitelist list");
+            String result = client.sendCommand("simplewhitelist list");
             for (String user : Util.getWhitelistArray(result)) {
                 try {
                     String rawUuid = Util.getMinecraftUUID(user);
