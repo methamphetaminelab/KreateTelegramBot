@@ -38,6 +38,7 @@ services:
       TARGET_CHAT_ID: ${TARGET_CHAT_ID}
       TRIBUTE_API_KEY: ${TRIBUTE_API_KEY}
       SERVER_PORT: ${SERVER_PORT}
+      THREAD_ID: ${THREAD_ID}
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
 volumes:
