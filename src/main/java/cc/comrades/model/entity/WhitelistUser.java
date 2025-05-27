@@ -29,5 +29,5 @@ public class WhitelistUser {
     private String username;
 
     @Column(nullable = false)
-    private boolean whitelist;
+    private boolean whitelist = false;
 }

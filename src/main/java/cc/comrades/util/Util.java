@@ -20,7 +20,7 @@ public class Util {
             return parts[1].split(",\\s*");
         }
 
-        throw new IllegalArgumentException("Invalid input format: " + input);
+        return new String[0];
     }
 
     public static UUID toUUID(String rawUUID) {
