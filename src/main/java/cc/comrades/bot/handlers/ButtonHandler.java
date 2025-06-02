@@ -2,13 +2,14 @@ package cc.comrades.bot.handlers;
 
 import cc.comrades.bot.buttons.ButtonRegistry;
 import cc.comrades.clients.RCONClient;
-import cc.comrades.model.dto.UserStatus;
 import cc.comrades.model.entity.TelegramSession;
-import cc.comrades.model.entity.WhitelistUser;
-import cc.comrades.util.DBSessionsManager;
-import cc.comrades.util.Util;
+import cc.comrades.service.DBService;
+import cc.comrades.service.TelegramService;
+import cc.comrades.util.StringUtil;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -17,63 +18,67 @@ import java.io.IOException;
 public class ButtonHandler {
 
     public static void onUpdate(long chatId, String data, Update update) {
+        log.info("Received button press: {}", data);
         ButtonRegistry.get(data.split("\\$")[0]).execute(update.callbackQuery());
     }
 
     public static void onYesButtonPress(CallbackQuery query) {
-        long chatId = query.maybeInaccessibleMessage().chat().id();
-        String username = query.data().split("\\$")[1];
+        MaybeInaccessibleMessage message = query.maybeInaccessibleMessage();
+        long chatId = message.chat().id();
+        String mcUsername = query.data().split("\\$")[1];
 
-        WhitelistUser user = DBSessionsManager.findFirstByField(WhitelistUser.class, "username", username);
-        if (user == null) {
-            user = new WhitelistUser(username, Util.toUUID(Util.getMinecraftUUID(username)), true);
-        }
-        user.setWhitelist(true);
+        log.info("Processing approval for user: {}", mcUsername);
 
-        DBSessionsManager.saveObject(user);
-        TelegramSession session = DBSessionsManager.findFirstByField(TelegramSession.class, "username", username);
+        TelegramSession session = DBService.findSessionByMinecraftUsername(mcUsername);
         if (session != null) {
-            session.setStatus(UserStatus.APPROVED);
-            DBSessionsManager.saveObject(session);
-            Util.reply(session.getChatId(), "Твоя заявка была одобрена. Добро пожаловать на сервер!");
+            session.approveWhitelist();
+            DBService.saveSession(session);
+            TelegramService.reply(session.getChatId(), "Твоя заявка была одобрена. Добро пожаловать на сервер!");
+        } else {
+            log.error("Session not found for username: {}", mcUsername);
+            TelegramService.reply(chatId, "Произошла неизвестная ошибка.");
+            throw new IllegalStateException("Session not found for username: " + mcUsername);
         }
 
-        addToRCON(query, chatId, username);
+        addToRCON(query, chatId, mcUsername);
     }
 
     public static void onNoButtonPress(CallbackQuery query) {
-        long chatId = query.maybeInaccessibleMessage().chat().id();
-        String[] args = query.data().split("\\$");
-        if (args.length < 2) {
-            return;
-        }
+        MaybeInaccessibleMessage message = query.maybeInaccessibleMessage();
+        long chatId = message.chat().id();
+        String mcUsername = query.data().split("\\$")[1];
 
-        String username = args[1];
+        log.info("Processing rejection for user: {}", mcUsername);
 
-        WhitelistUser user = DBSessionsManager.findFirstByField(WhitelistUser.class, "username", username);
-        if (user == null) {
-            user = new WhitelistUser(username, Util.toUUID(Util.getMinecraftUUID(username)), false);
-        }
-        user.setWhitelist(false);
-
-        DBSessionsManager.saveObject(user);
-        TelegramSession session = DBSessionsManager.findFirstByField(TelegramSession.class, "username", username);
+        TelegramSession session = DBService.findSessionByMinecraftUsername(mcUsername);
         if (session != null) {
-            session.setStatus(UserStatus.REJECTED);
-            DBSessionsManager.saveObject(session);
-            Util.reply(session.getChatId(), "Твоя заявка была отклонена :(");
+            session.rejectWhitelist();
+            DBService.saveSession(session);
+            TelegramService.reply(session.getChatId(), "Твоя заявка была отклонена :(");
+        } else {
+            log.error("Session not found for username: {}", mcUsername);
+            TelegramService.reply(chatId, "Произошла неизвестная ошибка.");
+            throw new IllegalStateException("Session not found for username: " + mcUsername);
         }
 
-        Util.removeAndEdit(query, chatId, "Заявка пользователя " + username + " была отклонена");
+        User tgUser = query.from();
+
+        TelegramService.removeAndEdit(query, chatId, "Заявка пользователя " + mcUsername + " была отклонена: " +
+                TelegramService.getTelegramMentionString(tgUser.username(), tgUser.id(), tgUser.firstName()));
     }
 
-    private static void addToRCON(CallbackQuery query, long chatId, String username) {
+    private static void addToRCON(CallbackQuery query, long chatId, String mcUsername) {
+        User user = query.from();
+
         try {
-            RCONClient.getInstance().sendCommand("simplewhitelist add " + Util.sanitize(username));
-            Util.removeAndEdit(query, chatId, "Пользователь " + username + " был добавлен в белый список");
+            RCONClient.getInstance().sendCommand("simplewhitelist add " + StringUtil.sanitize(mcUsername));
+            TelegramService.removeAndEdit(query, chatId, "Пользователь " + mcUsername + " был добавлен в " +
+                    "белый список: " +
+                    TelegramService.getTelegramMentionString(user.username(), user.id(), user.firstName()));
         } catch (IOException e) {
-            log.error("Failed to whitelist user: " + username, e);
-            Util.removeAndEdit(query, chatId, "Не удалось добавить пользователя " + username + " в белый список");
+            log.error("Failed to whitelist user: " + mcUsername, e);
+            TelegramService.removeAndEdit(query, chatId, "Не удалось добавить пользователя " + mcUsername +
+                    " в белый список");
         }
     }
 }

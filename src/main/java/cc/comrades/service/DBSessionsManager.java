@@ -1,5 +1,6 @@
-package cc.comrades.util;
+package cc.comrades.service;
 
+import cc.comrades.util.EnvLoader;
 import jakarta.persistence.Entity;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class DBSessionsManager {
 
@@ -115,6 +117,14 @@ public class DBSessionsManager {
             return null;
         }
         return results.get(0);
+    }
+
+    public static <T> T getOrCreate(Class<T> clazz, String fieldName, Object value, Supplier<T> supplier) {
+        T entity = findFirstByField(clazz, fieldName, value);
+        if (entity != null) {
+            return entity;
+        }
+        return saveObject(supplier.get());
     }
 
     public static <T> List<T> getAllObjects(Class<T> clazz) {

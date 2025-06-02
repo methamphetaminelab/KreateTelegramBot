@@ -4,9 +4,13 @@ import cc.comrades.clients.RCONClient;
 import cc.comrades.model.dto.UserStatus;
 import cc.comrades.model.entity.TelegramSession;
 import cc.comrades.model.entity.WhitelistUser;
-import cc.comrades.util.DBSessionsManager;
+import cc.comrades.service.DBService;
+import cc.comrades.service.MinecraftService;
+import cc.comrades.service.TelegramService;
+import cc.comrades.service.DBSessionsManager;
 import cc.comrades.util.EnvLoader;
-import cc.comrades.util.Util;
+import cc.comrades.util.StringUtil;
+import cc.comrades.util.Validator;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
@@ -21,18 +25,20 @@ import java.util.function.Consumer;
 public class CommandHandler {
     public static void onUpdate(long chatId, String command, Update update) {
         String[] args = command.split(" ");
-        String username = update.message().from().username();
+        log.info("Received command: {} from user: {}", command, chatId);
+        String telegramUsername = update.message().from().username();
+
         switch (args[0].substring(1).toLowerCase()) {
             case "start" -> {
                 if (!update.message().chat().type().equals(Chat.Type.Private)) {
                     return;
                 }
-                handleStartCommand(username, chatId);
+                handleStartCommand(telegramUsername, chatId);
             }
             case "update_whitelist" -> handleUpdateWhitelistCommand(chatId);
             case "status" -> {
                 if (args.length < 2) {
-                    Util.reply(chatId, "Пожалуйста, укажите свой ник в Minecraft, " +
+                    TelegramService.reply(chatId, "Пожалуйста, укажите свой ник в Minecraft, " +
                             "чтобы проверить статус. Например: /status your_nickname");
                     return;
                 }
@@ -40,41 +46,45 @@ public class CommandHandler {
             }
             case "setname" -> {
                 if (args.length < 2) {
-                    Util.reply(chatId, "Пожалуйста, укажите свой ник в Minecraft. " +
+                    TelegramService.reply(chatId, "Пожалуйста, укажите свой ник в Minecraft. " +
                             "Например: /setname your_nickname");
                     return;
                 }
-                handleSetNameCommand(username, chatId, args);
+                handleSetNameCommand(telegramUsername, chatId, args);
             }
-//            default -> {
-//                Util.reply(chatId, "Неизвестная команда. " +
-//                        "Пожалуйста, используйте /start для начала оформления заявки.");
-//            }
+            default -> {
+                if (!update.message().chat().type().equals(Chat.Type.Private)) {
+                    return;
+                }
+
+                TelegramService.reply(chatId, "Неизвестная команда. " +
+                        "Пожалуйста, используйте /start для начала оформления заявки.");
+            }
         }
     }
 
     private static void handleSetNameCommand(String telegramUsername, long chatId, String[] args) {
         String username = args[1];
-        if (!Util.validateUsername(chatId, username)) {
+        if (!Validator.validateUsername(chatId, username)) {
             return;
         }
 
-        TelegramSession session = DBSessionsManager.findFirstByField(TelegramSession.class, "chatId", chatId);
+        TelegramSession session = DBService.findSessionByChatId(chatId);
         if (session == null) {
-            session = new TelegramSession();
-            session.setChatId(chatId);
-            session.setTelegramUsername(telegramUsername);
+            session = new TelegramSession(chatId, telegramUsername);
             session.setStatus(UserStatus.WAITING_FOR_HOURS);
         }
-        session.setUsername(username);
-        DBSessionsManager.saveObject(session);
 
-        Util.reply(chatId, "Ник успешно установлен");
+        session.setUser(DBService.getOrCreateWhitelistUser(username, false));
+        session = DBSessionsManager.saveObject(session);
+
+        TelegramService.reply(chatId, "Ник успешно установлен");
 
         if (session.isSubscribed()) {
             try {
-                RCONClient.getInstance().sendCommand(String.format("lp user %s parent add donate", session.getUsername()));
-                Util.reply(chatId, "Спасибо за подписку! Привилегии активированы.");
+                RCONClient.getInstance().sendCommand(String.format("lp user %s parent add donate",
+                        session.getUser().getUsername()));
+                TelegramService.reply(chatId, "Спасибо за подписку! Привилегии активированы.");
             } catch (IOException e) {
                 log.error("Failed to send message to user {}: {}", chatId, e.getMessage());
             }
@@ -82,33 +92,33 @@ public class CommandHandler {
     }
 
     private static void handleStatusCommand(long chatId, String username) {
-        Message message = Util.reply(chatId, "Проверяем статус...").message();
+        Message message = TelegramService.reply(chatId, "Проверяем статус...").message();
 
-        WhitelistUser user = DBSessionsManager.findFirstByField(WhitelistUser.class, "username", username);
+        WhitelistUser user = DBService.findWhitelistUserByUsername(username);
 
         boolean flag = false;
 
         if (user == null) {
-            if (isWhitelistUser(username, e -> Util.editMessage(chatId, message.messageId(),
+            if (isWhitelistUser(username, e -> TelegramService.editMessage(chatId, message.messageId(),
                     "Не удалось проверить статус"))) {
                 flag = true;
             } else {
-                Util.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере.");
+                TelegramService.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере.");
                 return;
             }
         }
 
         if (flag || user.isWhitelist()) {
-            Util.editMessage(chatId, message.messageId(), "Ты в белом списке на сервере!");
+            TelegramService.editMessage(chatId, message.messageId(), "Ты в белом списке на сервере!");
         } else {
-            Util.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере. " +
+            TelegramService.editMessage(chatId, message.messageId(), "Ты ещё не в белом списке на сервере. " +
                     "Пожалуйста, дождись одобрения заявки.");
         }
     }
 
     private static boolean isWhitelistUser(String username, Consumer<Exception> onException) {
         try {
-            String[] usernames = Util.getWhitelistArray(RCONClient.getInstance().sendCommand("simplewhitelist list"));
+            String[] usernames = StringUtil.getWhitelistArray(RCONClient.getInstance().sendCommand("simplewhitelist list"));
             return Arrays.asList(usernames).contains(username);
         } catch (IOException e) {
             log.error("Failed to get whitelist list: {}", e.getMessage());
@@ -118,33 +128,28 @@ public class CommandHandler {
     }
 
     private static void handleStartCommand(String telegramUsername, long chatId) {
-        TelegramSession existingSession = DBSessionsManager.findFirstByField(TelegramSession.class, "chatId", chatId);
+        TelegramSession existingSession = DBService.findSessionByChatId(chatId);
         if (existingSession != null) {
             if (existingSession.getStatus() == UserStatus.PENDING) {
-                Util.reply(chatId, "У вас уже есть активная заявка. " +
+                TelegramService.reply(chatId, "У вас уже есть активная заявка. " +
                         "Пожалуйста, дождитесь её обработки.");
                 return;
             } else if (existingSession.getStatus() == UserStatus.APPROVED) {
-                Util.reply(chatId, "Вы уже одобрены на сервере.");
+                TelegramService.reply(chatId, "Вы уже одобрены на сервере.");
                 return;
             } else if (existingSession.getStatus() == UserStatus.REJECTED) {
-                Util.reply(chatId, "Ваша заявка была отклонена.");
+                TelegramService.reply(chatId, "Ваша заявка была отклонена.");
                 return;
             }
-        }
 
-        Util.reply(chatId, "Привет!\n" +
-                "Чтобы начать оформление заявки на Креатé, укажите свой ник в Minecraft в ответе на это сообщение.", true);
-
-        if (existingSession != null) {
             DBSessionsManager.deleteObject(existingSession.getClass(), existingSession.getId());
         }
 
-        TelegramSession session = new TelegramSession();
-        session.setChatId(chatId);
-        session.setTelegramUsername(telegramUsername);
-        session.setStatus(UserStatus.WAITING_FOR_NAME);
-        DBSessionsManager.saveObject(session);
+        TelegramService.reply(chatId, "Привет!\n" +
+                "Чтобы начать оформление заявки на Креатé, укажите свой ник в Minecraft в ответе на это сообщение " +
+                "(лицензия обязательна).", true);
+
+        DBService.saveSession(new TelegramSession(chatId, telegramUsername));
     }
 
     private static void handleUpdateWhitelistCommand(long chatId) {
@@ -153,23 +158,23 @@ public class CommandHandler {
             return;
         }
 
-        SendResponse message = Util.reply(chatId, "Updating whitelist...");
+        SendResponse message = TelegramService.reply(chatId, "Updating whitelist...");
         updateFromWhitelist();
-        Util.editMessage(chatId, message.message().messageId(), "Whitelist updated!");
+        TelegramService.editMessage(chatId, message.message().messageId(), "Whitelist updated!");
     }
 
     public static void updateFromWhitelist() {
-        RCONClient client = RCONClient.getInstance();
         try {
-            String result = client.sendCommand("simplewhitelist list");
-            for (String user : Util.getWhitelistArray(result)) {
+            String[] whitelist = StringUtil.getWhitelistArray(RCONClient.getInstance().sendCommand("simplewhitelist list"));
+            for (String user : whitelist) {
                 try {
-                    String rawUuid = Util.getMinecraftUUID(user);
-                    if (DBSessionsManager.findFirstByField(WhitelistUser.class, "uuid", Util.toUUID(rawUuid)) != null) {
-                        log.warn("User already exists in the database: " + user + ", skipping");
+                    if (DBService.findWhitelistUserByUsername(user) != null) {
+                        log.info("User already exists in the database: " + user + ", skipping");
                         continue;
                     }
-                    DBSessionsManager.saveObject(new WhitelistUser(user, Util.toUUID(rawUuid), true));
+
+                    log.info("Adding user to the database: " + user);
+                    DBService.saveWhitelistUser(new WhitelistUser(user, MinecraftService.toUUID(MinecraftService.getMinecraftUUID(user)), true));
                 } catch (IllegalArgumentException e) {
                     log.warn("User was not found: " + user + ", skipping");
                 }
