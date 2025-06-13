@@ -9,6 +9,7 @@ import cc.comrades.service.DBService;
 import cc.comrades.service.TelegramService;
 import cc.comrades.service.DBSessionsManager;
 import cc.comrades.util.EnvLoader;
+import cc.comrades.util.Markdown;
 import cc.comrades.util.Validator;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Update;
@@ -142,7 +143,10 @@ public class MessageHandler {
 
         String mcUsername = user.getUsername();
 
-        SendMessage message = new SendMessage(Long.parseLong(EnvLoader.get("TARGET_CHAT_ID")), buildUserInfoMessage(session, firstName));
+        SendMessage message = new SendMessage(Long.parseLong(EnvLoader.get("TARGET_CHAT_ID")),
+                buildUserInfoMessage(session, firstName));
+
+        message.parseMode(ParseMode.MarkdownV2);
 
         message.replyMarkup(Buttons.create().row(
                 ButtonRegistry.get("yesButton").create(mcUsername),
@@ -153,35 +157,33 @@ public class MessageHandler {
         if (threadId != null) {
             message.messageThreadId(Integer.parseInt(EnvLoader.get("THREAD_ID")));
         }
-        if (session.getTelegramUsername() == null) {
-            message.parseMode(ParseMode.HTML);
-        }
 
         log.info("Sending whitelist request for user: {}", mcUsername);
         BotClient.getInstance().getBot().execute(message);
     }
 
     public static String buildUserInfoMessage(TelegramSession session, String firstName) {
+        Markdown markdown = Markdown.create("Новая заявка!\n");
         StringBuilder messageBuilder = new StringBuilder("Новая заявка!\n");
 
         if (session.getHours() != null) {
-            messageBuilder.append("Опыт игры (часы): ").append(session.getHours()).append("\n");
+            markdown.text("Опыт игры (часы): ").text(session.getHours()).newLine();
         }
         if (session.getInfo() != null) {
-            messageBuilder.append("Почему должны быть на сервере: ").append(session.getInfo()).append("\n");
+            markdown.text("Почему должны быть на сервере: ").text(session.getInfo()).newLine();
         }
         if (session.getBio() != null) {
-            messageBuilder.append("Чем займётесь: ").append(session.getBio()).append("\n");
+            markdown.text("Чем займётесь: ").text(session.getBio()).newLine();
         }
         if (session.getLinks() != null && !session.getLinks().trim().equals("-")) {
-            messageBuilder.append("Ссылки: ").append(session.getLinks()).append("\n");
+            markdown.text("Ссылки: ").text(session.getLinks()).newLine();
         }
         if (session.getDiscord() != null && !session.getDiscord().trim().equals("-")) {
-            messageBuilder.append("Дискорд: ").append(session.getDiscord()).append("\n");
+            markdown.text("Дискорд: ").text(session.getDiscord()).newLine();
         }
 
-        messageBuilder.append("Телеграм: ").append(TelegramService.getTelegramMentionString(session, firstName)).append("\n");
+        markdown.text("Телеграм: ").mention(session, firstName).newLine();
 
-        return messageBuilder.toString();
+        return markdown.build();
     }
 }
