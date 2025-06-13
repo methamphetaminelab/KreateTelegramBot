@@ -22,7 +22,8 @@ public class WhitelistUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    // nullable until mojang API is fixed
+    @Column(unique = true)
     private UUID uuid;
 
     @Column(unique = true, nullable = false)
