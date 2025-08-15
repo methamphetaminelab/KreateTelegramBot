@@ -14,6 +14,7 @@ import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import lombok.extern.slf4j.Slf4j;
+import java.util.concurrent.CompletableFuture;
 
 import java.io.IOException;
 import java.util.function.Consumer;
@@ -97,13 +98,25 @@ public class ButtonHandler {
         TelegramService.removeMarkupsAndEdit(query, chatId, markdown.build(), ParseMode.MarkdownV2);
     }
 
+//    private static void addToRCON(String mcUsername, Consumer<Exception> onError) {
+//
+//        try {
+//            RCONClient.getInstance().sendCommand("simplewhitelist add " + StringUtil.sanitize(mcUsername));
+//        } catch (IOException e) {
+//            log.error("Failed to whitelist user: {}", mcUsername, e);
+//            onError.accept(e);
+//        }
+//    }
     private static void addToRCON(String mcUsername, Consumer<Exception> onError) {
-
-        try {
-            RCONClient.getInstance().sendCommand("simplewhitelist add " + StringUtil.sanitize(mcUsername));
-        } catch (IOException e) {
-            log.error("Failed to whitelist user: {}", mcUsername, e);
-            onError.accept(e);
-        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                RCONClient.getInstance().sendCommand(
+                        "simplewhitelist add " + StringUtil.sanitize(mcUsername)
+                );
+            } catch (IOException e) {
+                log.error("Failed to whitelist user: {}", mcUsername, e);
+                onError.accept(e);
+            }
+        });
     }
 }
